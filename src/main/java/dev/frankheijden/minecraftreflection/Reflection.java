@@ -45,30 +45,47 @@ public class Reflection {
         return clazz;
     }
 
-    @SuppressWarnings("unchecked")
     public <R> R newInstance(Object... parameters) {
+        return this.<R>newInstanceClassObject(parameters).getObject();
+    }
+
+    public <R> R newInstance(ClassObject<?>... classObjects) {
+        return this.<R>newInstanceClassObject(classObjects).getObject();
+    }
+
+    @SuppressWarnings("unchecked")
+    public <R> ClassObject<R> newInstanceClassObject(Object... parameters) {
         try {
-            return (R) constructorTree.computeIfAbsent(getTypes(parameters), types -> getAccessibleConstructor(clazz, types)).newInstance(parameters);
+            Constructor<?> constructor = constructorTree.computeIfAbsent(getTypes(parameters), types ->
+              getAccessibleConstructor(clazz, types));
+            return ClassObject.of(clazz, (R) constructor.newInstance(parameters));
         } catch (IllegalAccessException | InstantiationException | InvocationTargetException ex) {
             throw new MinecraftReflectionException(ex);
         }
     }
 
     @SuppressWarnings("unchecked")
-    public <R> R newInstance(ClassObject<?>... classObjects) {
+    public <R> ClassObject<R> newInstanceClassObject(ClassObject<?>... classObjects) {
         try {
             Class<?>[] parameterTypes = ClassObject.getTypes(classObjects);
             Object[] parameters = ClassObject.getObjects(classObjects);
-            return (R) constructorTree.computeIfAbsent(parameterTypes, types -> getAccessibleConstructor(clazz, types)).newInstance(parameters);
+            Constructor<?> constructor =  constructorTree.computeIfAbsent(parameterTypes, types ->
+              getAccessibleConstructor(clazz, types));
+            return ClassObject.of(clazz, (R) constructor.newInstance(parameters));
         } catch (IllegalAccessException | InstantiationException | InvocationTargetException ex) {
             throw new MinecraftReflectionException(ex);
         }
     }
 
+    public <R> R get(Object instance, String fieldName) {
+        return this.<R>getClassObject(instance, fieldName).getObject();
+    }
+
     @SuppressWarnings("unchecked")
-    public <R> R get(Object instance, String field) {
+    public <R> ClassObject<R> getClassObject(Object instance, String fieldName) {
         try {
-            return (R) fieldMap.computeIfAbsent(field, k -> getAccessibleField(clazz, field)).get(instance);
+            Field field = fieldMap.computeIfAbsent(fieldName, k -> getAccessibleField(clazz, fieldName));
+            return ClassObject.of(field.getType(), (R) field.get(instance));
         } catch (IllegalAccessException ex) {
             throw new MinecraftReflectionException(ex);
         }
@@ -84,19 +101,33 @@ public class Reflection {
 
     @SuppressWarnings("unchecked")
     public <R> R invoke(Object instance, String method, ClassObject<?>... classObjects) {
+        return this.<R>invokeClassObject(instance, method, classObjects).getObject();
+    }
+
+    @SuppressWarnings("unchecked")
+    public <R> R invoke(Object instance, String method, Object... parameters) {
+        return this.<R>invokeClassObject(instance, method, parameters).getObject();
+    }
+
+    @SuppressWarnings("unchecked")
+    public <R> ClassObject<R> invokeClassObject(Object instance, String methodName, ClassObject<?>... classObjects) {
         try {
             Class<?>[] parameterTypes = ClassObject.getTypes(classObjects);
             Object[] parameters = ClassObject.getObjects(classObjects);
-            return (R) methodTree.computeIfAbsent(method, parameterTypes, types -> getAccessibleMethod(clazz, method, types)).invoke(instance, parameters);
+            Method method = methodTree.computeIfAbsent(methodName, parameterTypes, types ->
+              getAccessibleMethod(clazz, methodName, types));
+            return ClassObject.of(method.getReturnType(), (R) method.invoke(instance, parameters));
         } catch (IllegalAccessException | InvocationTargetException ex) {
             throw new MinecraftReflectionException(ex);
         }
     }
 
     @SuppressWarnings("unchecked")
-    public <R> R invoke(Object instance, String method, Object... parameters) {
+    public <R> ClassObject<R> invokeClassObject(Object instance, String methodName, Object... parameters) {
         try {
-            return (R) methodTree.computeIfAbsent(method, getTypes(parameters), types -> getAccessibleMethod(clazz, method, types)).invoke(instance, parameters);
+            Method method = methodTree.computeIfAbsent(methodName, getTypes(parameters), types ->
+              getAccessibleMethod(clazz, methodName, types));
+            return ClassObject.of(method.getReturnType(), (R) method.invoke(instance, parameters));
         } catch (IllegalAccessException | InvocationTargetException ex) {
             throw new MinecraftReflectionException(ex);
         }
